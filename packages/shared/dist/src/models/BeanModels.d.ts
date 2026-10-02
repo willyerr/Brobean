@@ -1,0 +1,30 @@
+export interface Roaster {
+    Id: number;
+    Name: string;
+    Location: string | null;
+    CreatedAt: Date;
+}
+export interface Bean {
+    Id: number;
+    RoasterId: number;
+    Name: string;
+    Origin: string | null;
+    RoastLevel: string;
+    CreatedAt: Date;
+}
+export interface BrewMethod {
+    Id: number;
+    Name: string;
+    CreatedAt: Date;
+}
+export interface Brew {
+    Id: number;
+    BeanId: number;
+    BrewMethodId: number;
+    Dose: number;
+    Yield: number;
+    Rating: number;
+    Notes: string | null;
+    BrewedAt: Date;
+    CreatedAt: Date;
+}
