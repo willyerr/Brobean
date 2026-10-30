@@ -1,0 +1,23 @@
+{
+  "name": "brobean",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Aplikasi tracker seduhan kopi.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=@brobean/api",
+    "dev:web": "npm run dev --workspace=@brobean/web"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/willyerr/Brobean.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}
