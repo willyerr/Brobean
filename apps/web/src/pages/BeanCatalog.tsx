@@ -1,186 +1,311 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useBeanStore } from '../store/useBeanStore';
 import type { Bean } from '@brobean/shared';
 
+type BeanForm = {
+  name: string;
+  roastery: string;
+  latitude?: string | number;
+  longitude?: string | number;
+};
+
+type Notice = { kind: 'success' | 'error' | 'info'; message: string } | null;
+
 export default function BeanCatalog() {
   const { beans, isLoading, error, isSubmitLoading, fetchBeans, addBean, editBean, removeBean } = useBeanStore();
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm();
-  
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<BeanForm>();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchBeans();
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
+    void fetchBeans();
   }, [fetchBeans]);
 
-  const onSubmit = async (data: any) => {
-    const payload = { ...data, photoBase64: photoPreview };
+  // Keep the focused field visible when the on-screen keyboard changes the visual viewport.
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const keepFocusedFieldVisible = () => {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && formRef.current?.contains(active)) {
+        window.requestAnimationFrame(() => active.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+      }
+    };
+    viewport.addEventListener('resize', keepFocusedFieldVisible);
+    viewport.addEventListener('scroll', keepFocusedFieldVisible);
+    return () => {
+      viewport.removeEventListener('resize', keepFocusedFieldVisible);
+      viewport.removeEventListener('scroll', keepFocusedFieldVisible);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 4200);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  const onSubmit = async (data: BeanForm) => {
+    const payload: Partial<Bean> = {
+      name: data.name.trim(),
+      roastery: data.roastery.trim(),
+      latitude: data.latitude === '' || data.latitude == null ? undefined : Number(data.latitude),
+      longitude: data.longitude === '' || data.longitude == null ? undefined : Number(data.longitude),
+      photoBase64: photoPreview || undefined,
+    };
     const success = editingId ? await editBean(editingId, payload) : await addBean(payload);
-    
     if (success) {
+      setNotice({ kind: 'success', message: editingId ? 'Perubahan kopi berhasil disimpan.' : 'Kopi berhasil ditambahkan ke koleksi.' });
       reset();
       setPhotoPreview(null);
       setEditingId(null);
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('Brobean', { body: `Kopi ${data.name} berhasil disimpan!`, icon: '/vite.svg' });
-      }
+      setLocationError(null);
+      if (photoInputRef.current) photoInputRef.current.value = '';
+    } else {
+      setNotice({ kind: 'error', message: 'Data belum berhasil disimpan. Periksa koneksi API lalu coba lagi.' });
     }
   };
 
   const handleGetLocation = () => {
     setLocationLoading(true);
     setLocationError(null);
+    setNotice({ kind: 'info', message: 'Meminta lokasi perangkat… Izinkan akses lokasi pada browser jika diminta.' });
     if (!navigator.geolocation) {
-      setLocationError('Browser tidak mendukung GPS');
+      setLocationError('Browser ini tidak mendukung GPS.');
       setLocationLoading(false);
+      setNotice({ kind: 'error', message: 'Browser tidak mendukung layanan lokasi.' });
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setValue('latitude', pos.coords.latitude);
-        setValue('longitude', pos.coords.longitude);
+      (position) => {
+        setValue('latitude', position.coords.latitude, { shouldDirty: true });
+        setValue('longitude', position.coords.longitude, { shouldDirty: true });
         setLocationLoading(false);
+        setNotice({ kind: 'success', message: 'Koordinat lokasi berhasil diambil.' });
       },
-      () => {
-        setLocationError('Izin lokasi ditolak atau GPS mati.');
+      (geoError) => {
+        const message = geoError.code === geoError.PERMISSION_DENIED
+          ? 'Izin lokasi ditolak. Aktifkan izin lokasi pada browser.'
+          : 'Lokasi tidak ditemukan. Pastikan GPS aktif lalu coba lagi.';
+        setLocationError(message);
         setLocationLoading(false);
-      }
+        setNotice({ kind: 'error', message });
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 },
     );
   };
 
-  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setPhotoPreview(reader.result as string);
-      reader.readAsDataURL(file);
+  const handlePhotoCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setNotice({ kind: 'error', message: 'Pilih file gambar dengan format yang didukung.' });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setNotice({ kind: 'error', message: 'Ukuran foto maksimal 5 MB.' });
+      event.target.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPhotoPreview(String(reader.result));
+      setNotice({ kind: 'success', message: 'Foto berhasil dipilih. Simpan formulir untuk menerapkan perubahan.' });
+    };
+    reader.onerror = () => setNotice({ kind: 'error', message: 'Foto gagal dibaca. Silakan pilih ulang.' });
+    reader.readAsDataURL(file);
+  };
+
+  const startEditing = (bean: Bean) => {
+    setEditingId(bean.id ?? null);
+    setValue('name', bean.name);
+    setValue('roastery', bean.roastery);
+    setValue('latitude', bean.latitude ?? '');
+    setValue('longitude', bean.longitude ?? '');
+    setPhotoPreview(bean.photoBase64 || null);
+    setLocationError(null);
+    setNotice({ kind: 'info', message: `Mode edit aktif untuk ${bean.name}.` });
+    window.setTimeout(() => formRef.current?.querySelector<HTMLInputElement>('input[name="name"]')?.focus(), 50);
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    reset();
+    setPhotoPreview(null);
+    setLocationError(null);
+    if (photoInputRef.current) photoInputRef.current.value = '';
+    setNotice({ kind: 'info', message: 'Perubahan dibatalkan.' });
+  };
+
+  const handleDelete = async (bean: Bean) => {
+    if (!bean.id) return;
+    if (!window.confirm(`Hapus ${bean.name} dari koleksi? Tindakan ini tidak dapat dibatalkan.`)) return;
+    setDeletingId(bean.id);
+    try {
+      const success = await removeBean(bean.id);
+      setNotice(success
+        ? { kind: 'success', message: `${bean.name} berhasil dihapus.` }
+        : { kind: 'error', message: `Gagal menghapus ${bean.name}. Silakan coba lagi.` });
+    } catch {
+      setNotice({ kind: 'error', message: `Gagal menghapus ${bean.name}. Silakan coba lagi.` });
+    } finally {
+      setDeletingId(null);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#FDF8F5] text-[#3E2723]">
-      {/* Navbar UI */}
-      <header className="bg-[#4E342E] text-[#EFEBE9] p-4 shadow-md sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold tracking-wide">☕ Brobean</h1>
-          <span className="text-sm bg-[#5D4037] px-3 py-1 rounded-full border border-[#795548]">MVP Catalog</span>
+    <div className="brobean-shell">
+      <header className="topbar">
+        <div className="topbar-inner">
+          <a className="brand" href="#top" aria-label="Brobean, kembali ke atas">
+            <span className="brand-mark" aria-hidden="true">b.</span>
+            <span>brobean<span className="brand-period">.</span></span>
+          </a>
+          <div className="topbar-meta"><span className="status-dot" /> PERSONAL COFFEE LOG</div>
         </div>
       </header>
 
-      <main className="p-6 max-w-5xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Panel Kiri: Form Input UI */}
-          <div className="lg:col-span-1">
-            <form onSubmit={handleSubmit(onSubmit)} className="bg-white p-6 rounded-2xl shadow-sm border border-[#D7CCC8]">
-              <h2 className="text-xl font-semibold mb-5 text-[#5D4037] border-b pb-2 border-[#D7CCC8]">
-                {editingId ? '✏️ Edit Data Kopi' : '✨ Tambah Koleksi'}
-              </h2>
-              
-              <div className="space-y-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-[#795548] mb-1">Nama Kopi</label>
-                  <input {...register('name', { required: 'Wajib diisi' })} placeholder="mis. Gayo Wine" className="w-full p-2.5 bg-[#FDF8F5] border border-[#D7CCC8] rounded-lg focus:ring-2 focus:ring-[#8D6E63] outline-none transition" />
-                  {errors.name && <p className="text-red-500 text-xs mt-1">{String(errors.name.message)}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#795548] mb-1">Roastery</label>
-                  <input {...register('roastery', { required: 'Wajib diisi' })} placeholder="Nama penyangrai" className="w-full p-2.5 bg-[#FDF8F5] border border-[#D7CCC8] rounded-lg focus:ring-2 focus:ring-[#8D6E63] outline-none transition" />
-                  {errors.roastery && <p className="text-red-500 text-xs mt-1">{String(errors.roastery.message)}</p>}
-                </div>
-              </div>
-
-              {/* Sensor & Hardware UI */}
-              <div className="bg-[#EFEBE9] p-4 rounded-xl mb-6 space-y-4 border border-[#D7CCC8]">
-                <h3 className="text-xs font-bold text-[#5D4037] uppercase tracking-wider">Data Perangkat</h3>
-                
-                <div>
-                  <button type="button" onClick={handleGetLocation} disabled={locationLoading} className="w-full bg-[#8D6E63] text-white px-3 py-2 rounded-lg text-sm hover:bg-[#6D4C41] transition disabled:opacity-50 flex items-center justify-center gap-2">
-                    📍 {locationLoading ? 'Melacak...' : 'Ambil Koordinat GPS'}
-                  </button>
-                  <div className="flex gap-2 mt-2">
-                    <input {...register('latitude')} placeholder="Lat" readOnly className="w-full p-2 text-xs bg-gray-100 border-none rounded text-gray-500 text-center" />
-                    <input {...register('longitude')} placeholder="Long" readOnly className="w-full p-2 text-xs bg-gray-100 border-none rounded text-gray-500 text-center" />
-                  </div>
-                  {locationError && <p className="text-red-500 text-xs mt-1">{locationError}</p>}
-                </div>
-
-                <div>
-                  <label className="flex items-center justify-center w-full p-3 border-2 border-dashed border-[#8D6E63] rounded-lg cursor-pointer hover:bg-[#D7CCC8] transition">
-                    <span className="text-sm text-[#5D4037] font-medium">📷 Ambil Foto Bungkus</span>
-                    <input type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} className="hidden" />
-                  </label>
-                  {photoPreview && <img src={photoPreview} alt="Preview" className="mt-3 h-32 w-full object-cover rounded-lg shadow-sm border border-[#D7CCC8]" />}
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button type="submit" disabled={isSubmitLoading} className="flex-1 bg-[#4E342E] text-white py-2.5 rounded-lg font-medium hover:bg-[#3E2723] transition disabled:opacity-50">
-                  {isSubmitLoading ? 'Menyimpan...' : (editingId ? 'Update' : 'Simpan')}
-                </button>
-                {editingId && (
-                  <button type="button" onClick={() => { setEditingId(null); setPhotoPreview(null); reset(); }} className="flex-1 bg-transparent border border-[#795548] text-[#795548] py-2.5 rounded-lg hover:bg-[#EFEBE9] transition">
-                    Batal
-                  </button>
-                )}
-              </div>
-            </form>
-          </div>
-
-          {/* Panel Kanan: Grid Catalog UI */}
-          <div className="lg:col-span-2 space-y-4">
-            <h2 className="text-2xl font-bold text-[#4E342E] mb-6">Koleksi Biji Kopi</h2>
-            
-            {isLoading && <div className="text-center py-12 bg-white rounded-2xl border border-[#D7CCC8] animate-pulse">Menyeduh data...</div>}
-            {error && !isLoading && (
-              <div className="text-center py-12 bg-red-50 rounded-2xl border border-red-200">
-                <p className="text-red-800 mb-3">{error}</p>
-                <button onClick={fetchBeans} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700">Coba Lagi</button>
-              </div>
-            )}
-            {!isLoading && !error && beans.length === 0 && (
-              <div className="text-center py-12 bg-[#EFEBE9] rounded-2xl border-2 border-dashed border-[#D7CCC8] text-[#795548]">
-                Belum ada koleksi kopi. Silakan tambah data.
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              {!isLoading && !error && beans.map((bean) => (
-                <div key={bean.id} className="bg-white rounded-2xl p-5 shadow-sm border border-[#D7CCC8] hover:shadow-md transition flex flex-col justify-between group">
-                  <div>
-                    {bean.photoBase64 ? (
-                      <div className="h-40 w-full mb-4 overflow-hidden rounded-xl bg-[#EFEBE9]">
-                        <img src={bean.photoBase64} alt={bean.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
-                      </div>
-                    ) : (
-                      <div className="h-40 w-full mb-4 rounded-xl bg-[#EFEBE9] flex items-center justify-center text-[#A1887F]">
-                        <span className="text-3xl">☕</span>
-                      </div>
-                    )}
-                    <h3 className="text-xl font-bold text-[#4E342E] truncate">{bean.name}</h3>
-                    <p className="text-[#795548] text-sm mt-1 flex items-center gap-1">🏢 {bean.roastery}</p>
-                    {bean.latitude && bean.longitude && (
-                      <p className="text-xs text-[#8D6E63] mt-2 font-mono bg-[#FDF8F5] p-1.5 rounded inline-block">
-                        📍 {bean.latitude.toFixed(3)}, {bean.longitude.toFixed(3)}
-                      </p>
-                    )}
-                  </div>
-                  <div className="mt-5 flex gap-3 pt-4 border-t border-[#EFEBE9]">
-                    <button onClick={() => { setEditingId(bean.id!); setValue('name', bean.name); setValue('roastery', bean.roastery); setValue('latitude', bean.latitude); setValue('longitude', bean.longitude); setPhotoPreview(bean.photoBase64 || null); }} className="flex-1 py-1.5 text-sm font-medium text-[#4E342E] bg-[#EFEBE9] rounded-lg hover:bg-[#D7CCC8] transition">Edit</button>
-                    <button onClick={() => removeBean(bean.id!)} className="flex-1 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition">Hapus</button>
-                  </div>
-                </div>
-              ))}
+      <main id="top" className="page-wrap">
+        <section className="intro-block" aria-labelledby="page-title">
+          <div className="eyebrow"><span className="eyebrow-line" /> YOUR COFFEE, YOUR STORY</div>
+          <div className="intro-row">
+            <div>
+              <h1 id="page-title">Coffee, <em>collected.</em></h1>
+              <p className="intro-copy">Simpan biji kopi favoritmu, catat asalnya, dan bangun arsip perjalanan seduhmu satu per satu.</p>
+            </div>
+            <div className="bean-count" aria-label={`${beans.length} koleksi kopi`}>
+              <span className="bean-count-number">{String(beans.length).padStart(2, '0')}</span>
+              <span className="bean-count-label">BEANS<br />COLLECTED</span>
             </div>
           </div>
+        </section>
 
+        {notice && (
+          <div className={`notice notice-${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'} aria-live="polite">
+            <span className="notice-symbol" aria-hidden="true">{notice.kind === 'success' ? '✓' : notice.kind === 'error' ? '!' : 'i'}</span>
+            <span>{notice.message}</span>
+            <button type="button" className="notice-close" onClick={() => setNotice(null)} aria-label="Tutup pemberitahuan">×</button>
+          </div>
+        )}
+
+        <div className="workspace-grid">
+          <section className="form-panel" aria-labelledby="form-title">
+            <div className="panel-heading">
+              <div>
+                <span className="section-kicker">01 / BEAN DETAILS</span>
+                <h2 id="form-title">{editingId ? 'Update your bean' : 'Add a new bean'}</h2>
+              </div>
+              <span className="heading-icon" aria-hidden="true">＋</span>
+            </div>
+            <p className="panel-description">Mulai dengan mengenali biji kopi yang sedang kamu nikmati.</p>
+
+            <form ref={formRef} onSubmit={handleSubmit(onSubmit)} className="bean-form" noValidate>
+              <div className="field-group">
+                <label htmlFor="bean-name">Nama kopi <span className="required-mark">*</span></label>
+                <input id="bean-name" type="text" autoComplete="off" placeholder="Contoh: Gayo Wine" aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? 'bean-name-error' : 'bean-name-hint'} {...register('name', { required: 'Nama kopi wajib diisi.', minLength: { value: 2, message: 'Nama kopi minimal 2 karakter.' } })} />
+                {errors.name ? <span id="bean-name-error" className="field-error">{errors.name.message}</span> : <span id="bean-name-hint" className="field-hint">Nama yang tertera pada kemasan kopi.</span>}
+              </div>
+              <div className="field-group">
+                <label htmlFor="bean-roastery">Roastery <span className="required-mark">*</span></label>
+                <input id="bean-roastery" type="text" autoComplete="organization" placeholder="Contoh: Space Roastery" aria-invalid={Boolean(errors.roastery)} aria-describedby={errors.roastery ? 'bean-roastery-error' : 'bean-roastery-hint'} {...register('roastery', { required: 'Nama roastery wajib diisi.' })} />
+                {errors.roastery ? <span id="bean-roastery-error" className="field-error">{errors.roastery.message}</span> : <span id="bean-roastery-hint" className="field-hint">Tempat atau brand yang menyangrai kopi.</span>}
+              </div>
+
+              <div className="subsection-heading"><span>ORIGIN LOCATION</span><span className="optional-label">OPTIONAL</span></div>
+              <button className="location-button" type="button" onClick={handleGetLocation} disabled={locationLoading}>
+                <span className="location-pin" aria-hidden="true">⌖</span>
+                <span>{locationLoading ? 'Mencari lokasi…' : 'Gunakan lokasi perangkat'}</span>
+                <span className="button-arrow" aria-hidden="true">→</span>
+              </button>
+              <div className="coordinate-row">
+                <div className="field-group compact-field">
+                  <label htmlFor="bean-latitude">Latitude</label>
+                  <input id="bean-latitude" inputMode="decimal" placeholder="-6.200000" readOnly {...register('latitude')} />
+                </div>
+                <div className="field-group compact-field">
+                  <label htmlFor="bean-longitude">Longitude</label>
+                  <input id="bean-longitude" inputMode="decimal" placeholder="106.816666" readOnly {...register('longitude')} />
+                </div>
+              </div>
+              {locationError && <p className="field-error" role="alert">{locationError}</p>}
+
+              <div className="subsection-heading photo-heading"><span>BEAN BAG PHOTO</span><span className="optional-label">OPTIONAL · MAX 5 MB</span></div>
+              <div className="photo-picker-wrap">
+                <input ref={photoInputRef} id="bean-photo" className="visually-hidden" type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} aria-label="Pilih atau ambil foto kemasan kopi" />
+                <label htmlFor="bean-photo" className="photo-picker">
+                  {photoPreview ? <img src={photoPreview} alt="Preview foto kemasan kopi yang dipilih" /> : <span className="photo-placeholder" aria-hidden="true">▧</span>}
+                  <span className="photo-picker-copy"><strong>{photoPreview ? 'Ganti foto kemasan' : 'Tambahkan foto kemasan'}</strong><small>{photoPreview ? 'Foto siap disimpan bersama data kopi' : 'Ambil foto atau pilih dari perangkat'}</small></span>
+                  <span className="photo-add" aria-hidden="true">＋</span>
+                </label>
+              </div>
+
+              <div className="form-actions">
+                <button className="primary-button" type="submit" disabled={isSubmitLoading}>
+                  {isSubmitLoading ? <><span className="button-spinner" /> Menyimpan…</> : editingId ? 'Simpan perubahan' : 'Simpan ke koleksi'}
+                  {!isSubmitLoading && <span aria-hidden="true">↗</span>}
+                </button>
+                {editingId && <button className="secondary-button" type="button" onClick={cancelEditing}>Batalkan edit</button>}
+              </div>
+              <p className="form-footnote"><span aria-hidden="true">✳</span> Data bertanda * wajib diisi.</p>
+            </form>
+          </section>
+
+          <section className="collection-panel" aria-labelledby="collection-title">
+            <div className="collection-heading">
+              <div>
+                <span className="section-kicker">02 / YOUR LIBRARY</span>
+                <h2 id="collection-title">The collection<span className="title-period">.</span></h2>
+              </div>
+              <span className="collection-total">{beans.length} {beans.length === 1 ? 'BEAN' : 'BEANS'}</span>
+            </div>
+            <div className="collection-rule" />
+
+            {isLoading && (
+              <div className="state-card" role="status"><span className="state-loader" /><strong>Menyiapkan koleksi…</strong><span>Mengambil data kopi kamu.</span></div>
+            )}
+            {error && !isLoading && (
+              <div className="state-card state-error" role="alert"><span className="state-icon">!</span><strong>Koleksi belum dapat dimuat</strong><span>{error}</span><button type="button" className="retry-button" onClick={() => void fetchBeans()}>Coba muat ulang ↻</button></div>
+            )}
+            {!isLoading && !error && beans.length === 0 && (
+              <div className="empty-state">
+                <div className="empty-illustration" aria-hidden="true"><span>☕</span></div>
+                <span className="section-kicker">A FRESH START</span>
+                <h3>Your coffee story<br /><em>starts here.</em></h3>
+                <p>Belum ada biji kopi tersimpan. Tambahkan koleksi pertamamu melalui formulir di samping.</p>
+                <span className="empty-hint">← MULAI DARI FORM TAMBAH KOPI</span>
+              </div>
+            )}
+            {!isLoading && !error && beans.length > 0 && (
+              <div className="bean-grid">
+                {beans.map((bean, index) => (
+                  <article className="bean-card" key={bean.id ?? `${bean.name}-${index}`}>
+                    <div className="bean-card-image">
+                      {bean.photoBase64 ? <img src={bean.photoBase64} alt={`Kemasan ${bean.name}`} loading="lazy" /> : <div className="bean-image-fallback" aria-hidden="true"><span>☕</span><small>NO PHOTO</small></div>}
+                      <span className="bean-index">BEAN {String(index + 1).padStart(2, '0')}</span>
+                    </div>
+                    <div className="bean-card-content">
+                      <h3 title={bean.name}>{bean.name}</h3>
+                      <p className="roastery-name"><span aria-hidden="true">✳</span> {bean.roastery}</p>
+                      {bean.latitude != null && bean.longitude != null && <p className="bean-coordinates">⌖ {Number(bean.latitude).toFixed(3)}, {Number(bean.longitude).toFixed(3)}</p>}
+                      <div className="bean-card-actions">
+                        <button type="button" onClick={() => startEditing(bean)} aria-label={`Edit ${bean.name}`}>Edit <span aria-hidden="true">↗</span></button>
+                        <button type="button" className="delete-action" onClick={() => void handleDelete(bean)} disabled={deletingId === bean.id} aria-label={`Hapus ${bean.name}`}>{deletingId === bean.id ? 'Menghapus…' : 'Hapus'}</button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
+        <footer className="page-footer"><span>BREW SLOW. KEEP NOTES.</span><span>BROBEAN © 2026</span></footer>
       </main>
     </div>
   );
