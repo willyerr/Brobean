@@ -11,7 +11,7 @@ interface BeanState {
   fetchBeans: () => Promise<void>;
   addBean: (beanData: Partial<Bean>) => Promise<boolean>;
   editBean: (id: number, beanData: Partial<Bean>) => Promise<boolean>;
-  removeBean: (id: number) => Promise<void>;
+  removeBean: (id: number) => Promise<boolean>;
 }
 
 export const useBeanStore = create<BeanState>((set) => ({
@@ -61,8 +61,10 @@ export const useBeanStore = create<BeanState>((set) => ({
     try {
       await beanRepository.deleteBean(id);
       set((state) => ({ beans: state.beans.filter(b => b.id !== id) }));
+      return true;
     } catch (err) {
-      alert("Gagal menghapus data");
+      set({ error: 'Gagal menghapus data kopi.' });
+      return false;
     }
   }
 }));
