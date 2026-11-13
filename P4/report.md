@@ -89,3 +89,4 @@ Responsive Testing: Diuji melalui perangkat seluler virtual menggunakan Chrome D
 Hardware API Testing: Memastikan izin Geolocation dan Notification meminta konfirmasi persetujuan pengguna secara aman tanpa memicu crash pada aplikasi.
 
 Dokumentasi ini disusun sebagai laporan resmi pemenuhan tugas perancangan UI/UX dan implementasi MVP penuh pada proyek Brobean.
+
