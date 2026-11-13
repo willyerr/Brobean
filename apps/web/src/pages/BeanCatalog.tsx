@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useBeanStore } from '../store/useBeanStore';
 import type { Bean } from '@brobean/shared';
+import { validateBeanName, validateRoastery } from '../utils/validation';
 
 type BeanForm = {
   name: string;
@@ -209,12 +210,12 @@ export default function BeanCatalog() {
             <form ref={formRef} onSubmit={handleSubmit(onSubmit)} className="bean-form" noValidate>
               <div className="field-group">
                 <label htmlFor="bean-name">Nama kopi <span className="required-mark">*</span></label>
-                <input id="bean-name" type="text" autoComplete="off" placeholder="Contoh: Gayo Wine" aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? 'bean-name-error' : 'bean-name-hint'} {...register('name', { required: 'Nama kopi wajib diisi.', minLength: { value: 2, message: 'Nama kopi minimal 2 karakter.' } })} />
+                <input id="bean-name" type="text" autoComplete="off" placeholder="Contoh: Gayo Wine" aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? 'bean-name-error' : 'bean-name-hint'} {...register('name', { validate: validateBeanName })} />
                 {errors.name ? <span id="bean-name-error" className="field-error">{errors.name.message}</span> : <span id="bean-name-hint" className="field-hint">Nama yang tertera pada kemasan kopi.</span>}
               </div>
               <div className="field-group">
                 <label htmlFor="bean-roastery">Roastery <span className="required-mark">*</span></label>
-                <input id="bean-roastery" type="text" autoComplete="organization" placeholder="Contoh: Space Roastery" aria-invalid={Boolean(errors.roastery)} aria-describedby={errors.roastery ? 'bean-roastery-error' : 'bean-roastery-hint'} {...register('roastery', { required: 'Nama roastery wajib diisi.' })} />
+                <input id="bean-roastery" type="text" autoComplete="organization" placeholder="Contoh: Space Roastery" aria-invalid={Boolean(errors.roastery)} aria-describedby={errors.roastery ? 'bean-roastery-error' : 'bean-roastery-hint'} {...register('roastery', { validate: validateRoastery })} />
                 {errors.roastery ? <span id="bean-roastery-error" className="field-error">{errors.roastery.message}</span> : <span id="bean-roastery-hint" className="field-hint">Tempat atau brand yang menyangrai kopi.</span>}
               </div>
 
