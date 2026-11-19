@@ -2,6 +2,7 @@
 import cors from 'cors';
 import beanRoutes from './routes/beanRoutes.js';
 import errorHandler from './middlewares/errorHandler.js';
+import { runMigrations } from './database/migrate.js';
 
 const app = express();
 
@@ -24,7 +25,8 @@ app.use((_req, res) => {
   });
 });
 
-// Error handler harus dipasang setelah routes
+/// Jalankan database migrations sebelum server dimulai
+runMigrations();
 
 const PORT = 3000;
 
