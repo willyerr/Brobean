@@ -1,0 +1,3 @@
+﻿ALTER TABLE beans ADD COLUMN notes TEXT;
+
+ALTER TABLE beans ADD COLUMN archived_at TEXT;

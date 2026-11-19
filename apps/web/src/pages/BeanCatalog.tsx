@@ -1,15 +1,49 @@
-import { useEffect, useState } from 'react';
+﻿
+import { useEffect, useMemo, useState } from 'react';
 import { useBeanStore } from '../store/useBeanStore';
 import type { Bean } from '@brobean/shared';
 import BeanForm from '../components/BeanForm';
 
-type Notice = { kind: 'success' | 'error' | 'info'; message: string } | null;
+type Notice = {
+  kind: 'success' | 'error' | 'info';
+  message: string;
+} | null;
+
+type LibraryTab = 'active' | 'archived';
+
+type SortOption =
+  | 'recent'
+  | 'name-asc'
+  | 'name-desc'
+  | 'roast-date';
 
 export default function BeanCatalog() {
-  const { beans, isLoading, error, isSubmitLoading, fetchBeans, addBean, editBean, removeBean } = useBeanStore();
+  const {
+    beans,
+    isLoading,
+    error,
+    isSubmitLoading,
+    fetchBeans,
+    addBean,
+    editBean,
+    archiveBean,
+    restoreBean,
+  } = useBeanStore();
+
+  const [activeTab, setActiveTab] = useState<LibraryTab>('active');
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<SortOption>('recent');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const [filterRoast, setFilterRoast] = useState('');
+  const [filterProcess, setFilterProcess] = useState('');
+  const [filterOrigin, setFilterOrigin] = useState('');
+
+  const [showForm, setShowForm] = useState(false);
   const [editingBean, setEditingBean] = useState<Bean | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [processingId, setProcessingId] = useState<number | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     void fetchBeans();
@@ -17,9 +51,105 @@ export default function BeanCatalog() {
 
   useEffect(() => {
     if (!notice) return;
+
     const timer = window.setTimeout(() => setNotice(null), 4200);
     return () => window.clearTimeout(timer);
   }, [notice]);
+
+  const activeBeans = useMemo(
+    () => beans.filter((bean) => !bean.archivedAt),
+    [beans],
+  );
+
+  const archivedBeans = useMemo(
+    () => beans.filter((bean) => Boolean(bean.archivedAt)),
+    [beans],
+  );
+
+  const tabBeans = activeTab === 'active' ? activeBeans : archivedBeans;
+
+  const hasRoastDate = tabBeans.some((bean) => Boolean(bean.roastDate));
+
+  const roastOptions = useMemo(
+    () => [...new Set(tabBeans.map((bean) => bean.roastLevel).filter(Boolean))].sort(),
+    [tabBeans],
+  );
+
+  const processOptions = useMemo(
+    () => [...new Set(tabBeans.map((bean) => bean.process).filter(Boolean))].sort(),
+    [tabBeans],
+  );
+
+  const originOptions = useMemo(
+    () =>
+      [...new Set(
+        tabBeans
+          .map((bean) => bean.originRegion || bean.originCountry)
+          .filter(Boolean),
+      )].sort(),
+    [tabBeans],
+  );
+
+  const filteredBeans = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    const result = tabBeans.filter((bean) => {
+      const matchesSearch =
+        !query ||
+        bean.name.toLowerCase().includes(query) ||
+        bean.roastery.toLowerCase().includes(query);
+
+      const matchesRoast =
+        !filterRoast || bean.roastLevel === filterRoast;
+
+      const matchesProcess =
+        !filterProcess || bean.process === filterProcess;
+
+      const origin = bean.originRegion || bean.originCountry || '';
+      const matchesOrigin =
+        !filterOrigin || origin === filterOrigin;
+
+      return (
+        matchesSearch &&
+        matchesRoast &&
+        matchesProcess &&
+        matchesOrigin
+      );
+    });
+
+    return result.sort((a, b) => {
+      switch (sortBy) {
+        case 'name-asc':
+          return a.name.localeCompare(b.name);
+
+        case 'name-desc':
+          return b.name.localeCompare(a.name);
+
+        case 'roast-date':
+          return (b.roastDate || '').localeCompare(a.roastDate || '');
+
+        case 'recent':
+        default:
+          return (b.createdAt || '').localeCompare(a.createdAt || '');
+      }
+    });
+  }, [tabBeans, search, sortBy, filterRoast, filterProcess, filterOrigin]);
+
+  const openAddForm = () => {
+    setEditingBean(null);
+    setShowForm(true);
+  };
+
+  const openEditForm = (bean: Bean) => {
+    setEditingBean(bean);
+    setShowForm(true);
+    setOpenMenuId(null);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingBean(null);
+  };
 
   const handleSaveBean = async (payload: Partial<Bean>) => {
     const success = editingBean?.id
@@ -29,136 +159,414 @@ export default function BeanCatalog() {
     if (success) {
       setNotice({
         kind: 'success',
-        message: editingBean ? 'Perubahan kopi berhasil disimpan.' : 'Kopi berhasil ditambahkan ke koleksi.',
+        message: editingBean
+          ? 'Perubahan kopi berhasil disimpan.'
+          : 'Kopi berhasil ditambahkan ke koleksi.',
       });
-      setEditingBean(null);
+      closeForm();
     } else {
-      setNotice({ kind: 'error', message: 'Data belum berhasil disimpan. Periksa koneksi API lalu coba lagi.' });
+      setNotice({
+        kind: 'error',
+        message: 'Data belum berhasil disimpan. Periksa koneksi API lalu coba lagi.',
+      });
     }
 
     return success;
   };
 
-  const startEditing = (bean: Bean) => {
-    setEditingBean(bean);
-    setNotice({ kind: 'info', message: `Mode edit aktif untuk ${bean.name}.` });
+  const handleArchiveToggle = async (bean: Bean) => {
+    if (typeof bean.id !== 'number') return;
+
+    setProcessingId(bean.id);
+    setOpenMenuId(null);
+
+    const isArchived = Boolean(bean.archivedAt);
+    const success = isArchived
+      ? await restoreBean(bean.id)
+      : await archiveBean(bean.id);
+
+    setNotice(
+      success
+        ? {
+            kind: 'success',
+            message: isArchived
+              ? `${bean.name} berhasil dikembalikan ke koleksi aktif.`
+              : `${bean.name} berhasil diarsipkan.`,
+          }
+        : {
+            kind: 'error',
+            message: isArchived
+              ? `Gagal mengembalikan ${bean.name}.`
+              : `Gagal mengarsipkan ${bean.name}.`,
+          },
+    );
+
+    setProcessingId(null);
   };
 
-  const cancelEditing = () => {
-    setEditingBean(null);
-    setNotice({ kind: 'info', message: 'Perubahan dibatalkan.' });
+  const resetFilters = () => {
+    setFilterRoast('');
+    setFilterProcess('');
+    setFilterOrigin('');
+    setSearch('');
+    setSortBy('recent');
   };
 
-  const handleDelete = async (bean: Bean) => {
-    if (!bean.id) return;
-    if (!window.confirm(`Hapus ${bean.name} dari koleksi? Tindakan ini tidak dapat dibatalkan.`)) return;
-    setDeletingId(bean.id);
-    try {
-      const success = await removeBean(bean.id);
-      setNotice(success
-        ? { kind: 'success', message: `${bean.name} berhasil dihapus.` }
-        : { kind: 'error', message: `Gagal menghapus ${bean.name}. Silakan coba lagi.` });
-    } catch {
-      setNotice({ kind: 'error', message: `Gagal menghapus ${bean.name}. Silakan coba lagi.` });
-    } finally {
-      setDeletingId(null);
-    }
-  };
+  const hasActiveFilters =
+    Boolean(filterRoast || filterProcess || filterOrigin);
 
   return (
-    <div className="brobean-shell">
-      <header className="topbar">
-        <div className="topbar-inner">
-          <a className="brand" href="#top" aria-label="Brobean, kembali ke atas">
-            <span className="brand-mark" aria-hidden="true">b.</span>
-            <span>brobean<span className="brand-period">.</span></span>
-          </a>
-          <div className="topbar-meta"><span className="status-dot" /> PERSONAL COFFEE LOG</div>
+    <main className="page-wrap bean-library">
+      <section className="bean-library-header" aria-labelledby="page-title">
+        <div>
+          <span className="section-kicker">YOUR COFFEE, YOUR STORY</span>
+          <h1 id="page-title">
+            Bean <em>Library.</em>
+          </h1>
+          <p className="intro-copy">
+            Simpan biji kopi favoritmu dan bangun arsip perjalanan seduhmu.
+          </p>
         </div>
-      </header>
 
-      <main id="top" className="page-wrap">
-        <section className="intro-block" aria-labelledby="page-title">
-          <div className="eyebrow"><span className="eyebrow-line" /> YOUR COFFEE, YOUR STORY</div>
-          <div className="intro-row">
-            <div>
-              <h1 id="page-title">Coffee, <em>collected.</em></h1>
-              <p className="intro-copy">Simpan biji kopi favoritmu, catat asalnya, dan bangun arsip perjalanan seduhmu satu per satu.</p>
-            </div>
-            <div className="bean-count" aria-label={`${beans.length} koleksi kopi`}>
-              <span className="bean-count-number">{String(beans.length).padStart(2, '0')}</span>
-              <span className="bean-count-label">BEANS<br />COLLECTED</span>
-            </div>
-          </div>
+        <div className="bean-library-count">
+          <strong>{String(activeBeans.length).padStart(2, '0')}</strong>
+          <span>ACTIVE<br />BEANS</span>
+        </div>
+      </section>
+
+      {notice && (
+        <div
+          className={`notice notice-${notice.kind}`}
+          role={notice.kind === 'error' ? 'alert' : 'status'}
+          aria-live="polite"
+        >
+          <span>{notice.kind === 'success' ? '✓' : notice.kind === 'error' ? '!' : 'i'}</span>
+          <span>{notice.message}</span>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            aria-label="Tutup pemberitahuan"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      <section className="bean-library-toolbar" aria-label="Kontrol koleksi">
+        <div className="bean-library-tabs" role="tablist" aria-label="Status kopi">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'active'}
+            className={activeTab === 'active' ? 'active' : ''}
+            onClick={() => {
+              setActiveTab('active');
+              setOpenMenuId(null);
+            }}
+          >
+            Active <span>{activeBeans.length}</span>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'archived'}
+            className={activeTab === 'archived' ? 'active' : ''}
+            onClick={() => {
+              setActiveTab('archived');
+              setOpenMenuId(null);
+            }}
+          >
+            Archived <span>{archivedBeans.length}</span>
+          </button>
+        </div>
+
+        <div className="bean-library-controls">
+          <label className="bean-search">
+            <span aria-hidden="true">⌕</span>
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Cari kopi atau roastery..."
+              aria-label="Cari nama kopi atau roastery"
+            />
+          </label>
+
+          <label className="bean-sort">
+            <span className="visually-hidden">Urutkan koleksi</span>
+            <select
+              value={sortBy}
+              onChange={(event) => setSortBy(event.target.value as SortOption)}
+            >
+              <option value="recent">Recently added</option>
+              <option value="name-asc">Name A–Z</option>
+              <option value="name-desc">Name Z–A</option>
+              {hasRoastDate && (
+                <option value="roast-date">Roast date</option>
+              )}
+            </select>
+          </label>
+
+          <button
+            type="button"
+            className={`bean-filter-toggle${showAdvanced ? ' active' : ''}`}
+            onClick={() => setShowAdvanced((value) => !value)}
+            aria-expanded={showAdvanced}
+          >
+            <span aria-hidden="true">☷</span>
+            Filters
+          </button>
+        </div>
+      </section>
+
+      {showAdvanced && (
+        <section className="bean-advanced-filters" aria-label="Advanced filters">
+          <label>
+            Roast level
+            <select
+              value={filterRoast}
+              onChange={(event) => setFilterRoast(event.target.value)}
+            >
+              <option value="">All roast levels</option>
+              {roastOptions.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Process
+            <select
+              value={filterProcess}
+              onChange={(event) => setFilterProcess(event.target.value)}
+            >
+              <option value="">All processes</option>
+              {processOptions.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Origin
+            <select
+              value={filterOrigin}
+              onChange={(event) => setFilterOrigin(event.target.value)}
+            >
+              <option value="">All origins</option>
+              {originOptions.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+
+                    {hasActiveFilters && (
+            <button type="button" onClick={resetFilters}>
+              Reset filters
+            </button>
+          )}
         </section>
+      )}
 
-        {notice && (
-          <div className={`notice notice-${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'} aria-live="polite">
-            <span className="notice-symbol" aria-hidden="true">{notice.kind === 'success' ? '✓' : notice.kind === 'error' ? '!' : 'i'}</span>
-            <span>{notice.message}</span>
-            <button type="button" className="notice-close" onClick={() => setNotice(null)} aria-label="Tutup pemberitahuan">×</button>
+      <section className="bean-library-content" aria-label="Daftar kopi">
+        <div className="bean-library-section-heading">
+          <div>
+            <span className="section-kicker">
+              {activeTab === 'active' ? 'YOUR COLLECTION' : 'YOUR ARCHIVE'}
+            </span>
+            <h2>
+              {activeTab === 'active' ? 'All beans' : 'Archived beans'}
+              <span className="title-period">.</span>
+            </h2>
+          </div>
+          <span className="bean-results-count">
+            {filteredBeans.length} {filteredBeans.length === 1 ? 'BEAN' : 'BEANS'}
+          </span>
+        </div>
+
+        {isLoading && (
+          <div className="bean-library-state" role="status">
+            <span className="state-loader" />
+            <strong>Menyiapkan koleksi...</strong>
+            <span>Mengambil data kopi kamu.</span>
           </div>
         )}
 
-        <div className="workspace-grid">
-          <BeanForm
-            editingBean={editingBean}
-            isSubmitLoading={isSubmitLoading}
-            onSave={handleSaveBean}
-            onCancelEdit={cancelEditing}
-            onNotice={setNotice}
-          />
+        {error && !isLoading && (
+          <div className="bean-library-state state-error" role="alert">
+            <strong>Koleksi belum dapat dimuat</strong>
+            <span>{error}</span>
+            <button type="button" onClick={() => void fetchBeans()}>
+              Coba muat ulang
+            </button>
+          </div>
+        )}
 
-          <section className="collection-panel" aria-labelledby="collection-title">
-            <div className="collection-heading">
-              <div>
-                <span className="section-kicker">02 / YOUR LIBRARY</span>
-                <h2 id="collection-title">The collection<span className="title-period">.</span></h2>
-              </div>
-              <span className="collection-total">{beans.length} {beans.length === 1 ? 'BEAN' : 'BEANS'}</span>
-            </div>
-            <div className="collection-rule" />
+        {!isLoading && !error && filteredBeans.length === 0 && (
+          <div className="bean-library-empty">
+            <span className="bean-empty-icon" aria-hidden="true">☕</span>
+            <h3>
+              {tabBeans.length === 0
+                ? activeTab === 'active'
+                  ? 'Your coffee story starts here.'
+                  : 'Belum ada kopi yang diarsipkan.'
+                : 'Tidak ada kopi yang cocok.'}
+            </h3>
+            <p>
+              {tabBeans.length === 0
+                ? activeTab === 'active'
+                  ? 'Tambahkan kopi pertamamu untuk mulai membangun koleksi.'
+                  : 'Kopi yang kamu arsipkan akan muncul di sini.'
+                : 'Coba ubah kata pencarian atau filter yang digunakan.'}
+            </p>
+            {tabBeans.length > 0 && (
+              <button type="button" onClick={resetFilters}>
+                Reset pencarian dan filter
+              </button>
+            )}
+          </div>
+        )}
 
-            {isLoading && (
-              <div className="state-card" role="status"><span className="state-loader" /><strong>Menyiapkan koleksi…</strong><span>Mengambil data kopi kamu.</span></div>
-            )}
-            {error && !isLoading && (
-              <div className="state-card state-error" role="alert"><span className="state-icon">!</span><strong>Koleksi belum dapat dimuat</strong><span>{error}</span><button type="button" className="retry-button" onClick={() => void fetchBeans()}>Coba muat ulang ↻</button></div>
-            )}
-            {!isLoading && !error && beans.length === 0 && (
-              <div className="empty-state">
-                <div className="empty-illustration" aria-hidden="true"><span>☕</span></div>
-                <span className="section-kicker">A FRESH START</span>
-                <h3>Your coffee story<br /><em>starts here.</em></h3>
-                <p>Belum ada biji kopi tersimpan. Tambahkan koleksi pertamamu melalui formulir di samping.</p>
-                <span className="empty-hint">← MULAI DARI FORM TAMBAH KOPI</span>
-              </div>
-            )}
-            {!isLoading && !error && beans.length > 0 && (
-              <div className="bean-grid">
-                {beans.map((bean, index) => (
-                  <article className="bean-card" key={bean.id ?? `${bean.name}-${index}`}>
-                    <div className="bean-card-image">
-                      {bean.photoBase64 ? <img src={bean.photoBase64} alt={`Kemasan ${bean.name}`} loading="lazy" /> : <div className="bean-image-fallback" aria-hidden="true"><span>☕</span><small>NO PHOTO</small></div>}
-                      <span className="bean-index">BEAN {String(index + 1).padStart(2, '0')}</span>
+        {!isLoading && !error && filteredBeans.length > 0 && (
+          <div className="bean-library-grid">
+            {filteredBeans.map((bean, index) => (
+              <article
+                className="library-bean-card"
+                key={bean.id ?? `${bean.name}-${index}`}
+              >
+                <div className="library-bean-image">
+                  {bean.photoBase64 ? (
+                    <img
+                      src={bean.photoBase64}
+                      alt={`Kemasan ${bean.name}`}
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="library-bean-image-fallback">
+                      <span aria-hidden="true">☕</span>
+                      <small>BROBEAN</small>
                     </div>
-                    <div className="bean-card-content">
-                      <h3 title={bean.name}>{bean.name}</h3>
-                      <p className="roastery-name"><span aria-hidden="true">✳</span> {bean.roastery}</p>
-                      {bean.latitude != null && bean.longitude != null && <p className="bean-coordinates">⌖ {Number(bean.latitude).toFixed(3)}, {Number(bean.longitude).toFixed(3)}</p>}
-                      <div className="bean-card-actions">
-                        <button type="button" onClick={() => startEditing(bean)} aria-label={`Edit ${bean.name}`}>Edit <span aria-hidden="true">↗</span></button>
-                        <button type="button" className="delete-action" onClick={() => void handleDelete(bean)} disabled={deletingId === bean.id} aria-label={`Hapus ${bean.name}`}>{deletingId === bean.id ? 'Menghapus…' : 'Hapus'}</button>
+                  )}
+
+                  {activeTab === 'archived' && (
+                    <span className="library-archived-label">ARCHIVED</span>
+                  )}
+
+                  <span className="library-bean-number">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+
+                  <div className="library-bean-menu-wrap">
+                    <button
+                      type="button"
+                      className="library-bean-menu-button"
+                      aria-label={`Menu tindakan ${bean.name}`}
+                      aria-expanded={openMenuId === bean.id}
+                      onClick={() =>
+                        setOpenMenuId(
+                          openMenuId === bean.id ? null : bean.id ?? null,
+                        )
+                      }
+                    >
+                      •••
+                    </button>
+
+                    {openMenuId === bean.id && (
+                      <div className="library-bean-menu">
+                        <button
+                          type="button"
+                          onClick={() => openEditForm(bean)}
+                        >
+                          Edit bean
+                        </button>
+                        <button
+                          type="button"
+                          disabled={processingId === bean.id}
+                          onClick={() => void handleArchiveToggle(bean)}
+                        >
+                          {processingId === bean.id
+                            ? 'Processing...'
+                            : activeTab === 'active'
+                              ? 'Archive'
+                              : 'Restore'}
+                        </button>
                       </div>
-                    </div>
-                  </article>
-                ))}
+                    )}
+                  </div>
+                </div>
+
+                <div className="library-bean-card-content">
+                  <h3 title={bean.name}>{bean.name}</h3>
+                  <p>{bean.roastery}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <footer className="page-footer">
+        <span>BREW SLOW. KEEP NOTES.</span>
+        <span>BROBEAN © 2026</span>
+      </footer>
+
+      <button
+        type="button"
+        className="bean-library-fab"
+        onClick={openAddForm}
+        aria-label="Tambah kopi baru"
+      >
+        <span aria-hidden="true">+</span>
+        <span>Add Bean</span>
+      </button>
+
+      {showForm && (
+        <div
+          className="bean-form-overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeForm();
+          }}
+        >
+          <section
+            className="bean-form-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bean-dialog-title"
+          >
+            <div className="bean-form-dialog-header">
+              <div>
+                <span className="section-kicker">
+                  {editingBean ? 'UPDATE YOUR COLLECTION' : 'EXPAND YOUR COLLECTION'}
+                </span>
+                <h2 id="bean-dialog-title">
+                  {editingBean ? 'Edit bean.' : 'Add a bean.'}
+                </h2>
               </div>
-            )}
+
+              <button
+                type="button"
+                className="bean-form-dialog-close"
+                onClick={closeForm}
+                aria-label="Tutup formulir"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="bean-form-dialog-body">
+              <BeanForm
+                editingBean={editingBean}
+                isSubmitLoading={isSubmitLoading}
+                onSave={handleSaveBean}
+                onCancelEdit={closeForm}
+                onNotice={setNotice}
+              />
+            </div>
           </section>
         </div>
-        <footer className="page-footer"><span>BREW SLOW. KEEP NOTES.</span><span>BROBEAN © 2026</span></footer>
-      </main>
-    </div>
+      )}
+    </main>
   );
 }
