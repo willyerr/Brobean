@@ -9,6 +9,7 @@ import {
 
 import AppLayout from './layouts/AppLayout';
 import BeanCatalog from './pages/BeanCatalog';
+import BeanDetail from './pages/BeanDetail';
 import Dashboard from './pages/Dashboard';
 
 function PlaceholderPage({
@@ -62,6 +63,7 @@ function App() {
          <Route path="/" element={<Dashboard />} />
 
           <Route path="/beans" element={<BeanCatalog />} />
+          <Route path="/beans/:id" element={<BeanDetail />} />
 
           <Route
             path="/brews"

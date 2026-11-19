@@ -1,5 +1,6 @@
-﻿
+
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useBeanStore } from '../store/useBeanStore';
 import type { Bean } from '@brobean/shared';
 import BeanForm from '../components/BeanForm';
@@ -436,26 +437,32 @@ export default function BeanCatalog() {
                 key={bean.id ?? `${bean.name}-${index}`}
               >
                 <div className="library-bean-image">
-                  {bean.photoBase64 ? (
-                    <img
-                      src={bean.photoBase64}
-                      alt={`Kemasan ${bean.name}`}
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="library-bean-image-fallback">
-                      <span aria-hidden="true">☕</span>
-                      <small>BROBEAN</small>
-                    </div>
-                  )}
+                  <Link
+                    className="library-bean-image-link"
+                    to={`/beans/${bean.id}`}
+                    aria-label={`Lihat detail ${bean.name}`}
+                  >
+                    {bean.photoBase64 ? (
+                      <img
+                        src={bean.photoBase64}
+                        alt={`Kemasan ${bean.name}`}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="library-bean-image-fallback">
+                        <span aria-hidden="true">☕</span>
+                        <small>BROBEAN</small>
+                      </div>
+                    )}
 
-                  {activeTab === 'archived' && (
-                    <span className="library-archived-label">ARCHIVED</span>
-                  )}
+                    {activeTab === 'archived' && (
+                      <span className="library-archived-label">ARCHIVED</span>
+                    )}
 
-                  <span className="library-bean-number">
-                    {String(index + 1).padStart(2, '0')}
-                  </span>
+                    <span className="library-bean-number">
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                  </Link>
 
                   <div className="library-bean-menu-wrap">
                     <button
@@ -496,10 +503,14 @@ export default function BeanCatalog() {
                   </div>
                 </div>
 
-                <div className="library-bean-card-content">
+                <Link
+                  className="library-bean-card-content library-bean-card-link"
+                  to={`/beans/${bean.id}`}
+                  aria-label={`Lihat detail ${bean.name}`}
+                >
                   <h3 title={bean.name}>{bean.name}</h3>
                   <p>{bean.roastery}</p>
-                </div>
+                </Link>
               </article>
             ))}
           </div>

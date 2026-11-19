@@ -13,6 +13,11 @@ export const beanRepository = {
     return response.data;
   },
 
+  getBeanById: async (id: number): Promise<Bean> => {
+    const response = await api.get(`/beans/${id}`);
+    return response.data;
+  },
+
   // CREATE
   createBean: async (data: Partial<Bean>): Promise<Bean> => {
     await new Promise(res => setTimeout(res, 800));
