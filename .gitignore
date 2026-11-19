@@ -19,5 +19,7 @@ yarn-error.log*
 Thumbs.db
 
 # SQLite database
-apps/api/data/*.sqlite3
-apps/api/data/*.sqlite-*
+# SQLite database
+apps/api/data/*.sqlite-wal
+apps/api/data/*.sqlite-shm
+apps/api/data/*.sqlite-journal
