@@ -18,14 +18,20 @@ export default function BrewLog() {
 
   useEffect(() => {
     void fetchBrews();
-    brewRepository.getPreparations()
-      .then((items) => setPreparations(items.filter((item) => !item.archived_at)))
+    // Keep archived methods available as labels for historical Brew Log entries.
+    brewRepository.getPreparations(true)
+      .then(setPreparations)
       .catch(() => setPreparationError('Brewing methods gagal dimuat. Pastikan API berjalan.'));
   }, [fetchBrews]);
 
   useEffect(() => {
     if (!beans.length) void fetchBeans();
   }, [beans.length, fetchBeans]);
+
+  const activePreparations = useMemo(
+    () => preparations.filter((item) => !item.archived_at),
+    [preparations],
+  );
 
   const visibleBrews = useMemo(() => {
     if (filter === 'all') return brews;
@@ -58,7 +64,7 @@ export default function BrewLog() {
       </section>
 
       {isFormOpen ? (
-        <BrewForm beans={beans} preparations={preparations} onSave={handleSave} onCancel={() => setIsFormOpen(false)} />
+        <BrewForm beans={beans} preparations={activePreparations} onSave={handleSave} onCancel={() => setIsFormOpen(false)} />
       ) : (
         <div className="brew-toolbar">
           <div><span className="section-kicker">YOUR HISTORY</span><h2>Recent brews</h2></div>
@@ -75,7 +81,7 @@ export default function BrewLog() {
             <span>{visibleBrews.length} {visibleBrews.length === 1 ? 'entry' : 'entries'}</span>
             <select aria-label="Filter by brewing method" value={filter} onChange={(event) => setFilter(event.target.value)}>
               <option value="all">All methods</option>
-              {preparations.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              {preparations.map((item) => <option key={item.id} value={item.id}>{item.name}{item.archived_at ? ' (Archived)' : ''}</option>)}
             </select>
           </div>
           {isLoading ? <div className="brew-empty-state" role="status"><span className="brew-state-symbol">◌</span><h2>Loading your brews…</h2><p>Gathering your brewing history.</p></div> : visibleBrews.length ? (

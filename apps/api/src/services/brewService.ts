@@ -60,16 +60,38 @@ const brewService = {
     return this.getById(id);
   },
   update(id: number, input: Record<string, unknown>) {
-    existingBrew(id);
+    const currentBrew = existingBrew(id);
     const data: { beanId?: number; preparationId?: number; rating?: number; brewedAt?: string; note?: string | null; values?: Record<string, unknown> } = {};
     if (input.beanId !== undefined) { data.beanId = positiveId(input.beanId, 'Bean ID'); if (!beanRepository.findById(data.beanId)) throw new BeanServiceError('Bean yang dipilih tidak ditemukan.', 404); }
-    if (input.preparationId !== undefined) { data.preparationId = positiveId(input.preparationId, 'Preparation ID'); const p = preparationRepository.findById(data.preparationId); if (!p || p.archived_at) throw new BeanServiceError('Metode seduh tidak tersedia.', 400); }
+    if (input.preparationId !== undefined) {
+      data.preparationId = positiveId(input.preparationId, 'Preparation ID');
+      const preparation = preparationRepository.findById(data.preparationId);
+      const isUnchangedArchivedMethod = preparation?.archived_at && data.preparationId === currentBrew.preparation_id;
+      if (!preparation || (preparation.archived_at && !isUnchangedArchivedMethod)) {
+        throw new BeanServiceError('Metode seduh tidak tersedia. Metode yang sudah diarsipkan hanya dapat dipertahankan pada riwayat lama.', 400);
+      }
+    }
     if (input.rating !== undefined) { if (!Number.isInteger(input.rating) || Number(input.rating) < 1 || Number(input.rating) > 5) throw new BeanServiceError('Rating harus berupa angka 1 sampai 5.', 400); data.rating = Number(input.rating); }
     if (input.brewedAt !== undefined) { if (typeof input.brewedAt !== 'string' || !input.brewedAt.trim()) throw new BeanServiceError('Tanggal seduh tidak valid.', 400); data.brewedAt = input.brewedAt.trim(); }
     if (input.note !== undefined) data.note = typeof input.note === 'string' ? input.note.trim() : null;
     if (input.values !== undefined) {
-      const targetPreparation = data.preparationId ?? existingBrew(id).preparation_id;
-      data.values = validateValues(targetPreparation, input.values);
+      const targetPreparation = data.preparationId ?? currentBrew.preparation_id;
+      const isSamePreparation = targetPreparation === currentBrew.preparation_id;
+      if (isSamePreparation && input.values && typeof input.values === 'object' && !Array.isArray(input.values)) {
+        const configuration = preparationRepository.findParameters(targetPreparation);
+        const enabledKeys = new Set(configuration.filter((parameter) => parameter.is_enabled).map((parameter) => parameter.parameter_key));
+        const submittedValues = input.values as Record<string, unknown>;
+        const activeSubmittedValues = Object.fromEntries(Object.entries(submittedValues).filter(([key]) => enabledKeys.has(key)));
+        const preservedHistoricalValues: Record<string, unknown> = {};
+        for (const item of brewRepository.findValues(id)) {
+          if (enabledKeys.has(item.parameter_key)) continue;
+          try { preservedHistoricalValues[item.parameter_key] = JSON.parse(item.value_json); }
+          catch { preservedHistoricalValues[item.parameter_key] = item.value_json; }
+        }
+        data.values = { ...preservedHistoricalValues, ...validateValues(targetPreparation, activeSubmittedValues) };
+      } else {
+        data.values = validateValues(targetPreparation, input.values);
+      }
     }
     brewRepository.update(id, data);
     return this.getById(id);

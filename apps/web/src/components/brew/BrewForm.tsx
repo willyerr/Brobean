@@ -34,6 +34,7 @@ export default function BrewForm({ beans, preparations, initialBrew, onSave, onC
 
   const availableBeans = useMemo(() => beans.filter((bean) => !bean.archivedAt && typeof bean.id === 'number'), [beans]);
   const selectedPreparation = preparations.find((item) => item.id === Number(preparationId));
+  const selectablePreparations = preparations.filter((item) => !item.archived_at || item.id === initialBrew?.preparationId);
 
   useEffect(() => {
     if (!preparationId) {
@@ -95,22 +96,31 @@ export default function BrewForm({ beans, preparations, initialBrew, onSave, onC
       setFormError('Rating wajib dipilih sebelum menyimpan Brew Log.');
       return;
     }
+    if (!brewedAt || Number.isNaN(new Date(brewedAt).getTime())) {
+      setFormError('Tanggal dan waktu seduh tidak valid.');
+      return;
+    }
     const missing = parameters.find((parameter) => parameter.is_enabled === 1 && parameter.is_required === 1 && (values[parameter.parameter_key] === undefined || values[parameter.parameter_key] === '' || (Array.isArray(values[parameter.parameter_key]) && (values[parameter.parameter_key] as string[]).length === 0)));
     if (missing) {
       setFormError(`${missing.label} wajib diisi.`);
       return;
     }
     setIsSaving(true);
-    const result = await onSave({
-      beanId: Number(beanId),
-      preparationId: Number(preparationId),
-      rating,
-      brewedAt: new Date(brewedAt).toISOString(),
-      note: note.trim(),
-      values,
-    });
-    setIsSaving(false);
-    if (!result) setFormError('Brew Log belum berhasil disimpan. Periksa koneksi API dan coba lagi.');
+    try {
+      const result = await onSave({
+        beanId: Number(beanId),
+        preparationId: Number(preparationId),
+        rating,
+        brewedAt: new Date(brewedAt).toISOString(),
+        note: note.trim(),
+        values,
+      });
+      if (!result) setFormError('Brew Log belum berhasil disimpan. Periksa koneksi API dan coba lagi.');
+    } catch {
+      setFormError('Brew Log belum berhasil disimpan. Periksa koneksi API dan coba lagi.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -140,9 +150,10 @@ export default function BrewForm({ beans, preparations, initialBrew, onSave, onC
               <label htmlFor="brew-method">Brewing method <span className="required-mark">*</span></label>
               <select id="brew-method" required value={preparationId} onChange={(event) => handlePreparationChange(event.target.value)} disabled={isSaving}>
                 <option value="">Select a brewing method</option>
-                {preparations.map((preparation) => <option key={preparation.id} value={preparation.id}>{preparation.name}</option>)}
+                {selectablePreparations.map((preparation) => <option key={preparation.id} value={preparation.id} disabled={Boolean(preparation.archived_at)}>{preparation.name}{preparation.archived_at ? ' (Archived — existing entry)' : ''}</option>)}
               </select>
               {selectedPreparation?.note ? <small className="field-hint">{selectedPreparation.note}</small> : null}
+              {selectedPreparation?.archived_at ? <small className="field-hint">This method is archived. Keep it for this historical entry or select an active method.</small> : null}
             </div>
             <div className="field-group">
               <label htmlFor="brew-date">Brewed at <span className="required-mark">*</span></label>

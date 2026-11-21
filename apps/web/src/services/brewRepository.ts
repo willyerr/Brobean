@@ -23,8 +23,10 @@ export const brewRepository = {
   async deleteBrew(id: number): Promise<void> {
     await api.delete(`/brews/${id}`);
   },
-  async getPreparations(): Promise<Preparation[]> {
-    const response = await api.get('/preparations');
+  async getPreparations(includeArchived = false): Promise<Preparation[]> {
+    const response = await api.get('/preparations', {
+      params: includeArchived ? { includeArchived: 'true' } : undefined,
+    });
     return response.data;
   },
   async getPreparationParameters(id: number): Promise<PreparationParameter[]> {

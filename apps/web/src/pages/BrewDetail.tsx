@@ -36,7 +36,7 @@ export default function BrewDetail() {
       return;
     }
     setLoading(true);
-    Promise.all([brewRepository.getBrewById(brewId), brewRepository.getPreparations()])
+    Promise.all([brewRepository.getBrewById(brewId), brewRepository.getPreparations(true)])
       .then(([item, methods]) => {
         if (cancelled) return;
         setBrew(item);
@@ -55,10 +55,11 @@ export default function BrewDetail() {
 
   const handleSave = async (data: Omit<Brew, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!brew?.id) return null;
+    const previousPreparationId = brew.preparationId;
     const updated = await editBrew(brew.id, data);
     if (updated) {
       setBrew(updated);
-      if (updated.preparationId !== brew.preparationId) {
+      if (updated.preparationId !== previousPreparationId) {
         try { setParameters(await brewRepository.getPreparationParameters(updated.preparationId)); } catch { setParameters([]); }
       }
       setEditing(false);
@@ -85,15 +86,16 @@ export default function BrewDetail() {
     <main className="page-wrap brew-detail-page">
       <Link to="/brews" className="bean-detail-back">← Back to Brew Log</Link>
       <section className="brew-detail-header">
-        <div><span className="section-kicker">BREWING JOURNAL / ENTRY {String(brew.id).padStart(3, '0')}</span><h1>{preparation?.name ?? 'Brew'} <em>session.</em></h1><p>{bean?.name ?? 'Coffee bean'} · {bean?.roastery ?? 'Roastery unavailable'}</p><time>{formatDate(brew.brewedAt)}</time></div>
+        <div><span className="section-kicker">BREWING JOURNAL / ENTRY {String(brew.id).padStart(3, '0')}</span><h1>{preparation?.name ?? 'Brew'} <em>session.</em></h1><p>{bean?.name ?? 'Coffee bean'} · {bean?.roastery ?? 'Roastery unavailable'}</p><time>{formatDate(brew.brewedAt)}</time>{preparation?.archived_at ? <p className="brew-detail-muted">This brewing method is archived. This historical entry is preserved.</p> : null}</div>
         <div className="brew-detail-actions"><button type="button" className="brew-cancel-button" onClick={() => setEditing(true)}>Edit entry</button><button type="button" className="brew-delete-button" onClick={handleDelete}>Delete</button></div>
       </section>
       <section className="brew-detail-rating"><span className="section-kicker">OVERALL RATING</span><strong>{'★'.repeat(brew.rating)}<i>{'★'.repeat(5 - brew.rating)}</i></strong><span>{brew.rating} out of 5</span></section>
       <section className="brew-detail-section"><span className="section-kicker">BREWING PARAMETERS</span><h2>The details.</h2>
-        {parameters.filter((parameter) => parameter.is_enabled === 1 && brew.values?.[parameter.parameter_key] !== undefined).length ? (
+        {parameters.filter((parameter) => brew.values?.[parameter.parameter_key] !== undefined).length ? (
           <div className="brew-detail-parameters">
             {(['before', 'during', 'after'] as const).map((phase) => {
-              const items = parameters.filter((parameter) => parameter.is_enabled === 1 && parameter.preparation_phase === phase && brew.values?.[parameter.parameter_key] !== undefined);
+              // Show recorded values even if this parameter has since been disabled.
+              const items = parameters.filter((parameter) => parameter.preparation_phase === phase && brew.values?.[parameter.parameter_key] !== undefined);
               if (!items.length) return null;
               return <div className="brew-detail-phase" key={phase}><h3>{phase === 'before' ? 'Before Brewing' : phase === 'during' ? 'During Brewing' : 'After Brewing'}</h3><div className="bean-detail-grid">{items.map((parameter) => <div className="bean-detail-item" key={parameter.parameter_key}><span>{parameter.label}</span><strong>{Array.isArray(brew.values[parameter.parameter_key]) ? (brew.values[parameter.parameter_key] as string[]).join(', ') : String(brew.values[parameter.parameter_key])}{parameter.unit ? ` ${parameter.unit}` : ''}</strong></div>)}</div></div>;
             })}
