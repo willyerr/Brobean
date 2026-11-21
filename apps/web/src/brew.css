@@ -1,0 +1,119 @@
+/* Brew Log */
+.brew-page { padding-bottom: 72px; }
+.brew-page-header { display: flex; align-items: end; justify-content: space-between; gap: 28px; padding: 66px 0 42px; border-bottom: 1px solid var(--color-border); }
+.brew-page-header h1, .brew-detail-header h1 { margin: 17px 0 0; color: var(--color-text); font-family: Georgia, 'Times New Roman', serif; font-size: clamp(48px, 6vw, 76px); font-weight: 400; letter-spacing: -3px; line-height: 1; }
+.brew-page-header h1 em, .brew-detail-header h1 em { color: var(--color-primary); font-weight: 400; }
+.brew-page-header > div:first-child > p { max-width: 570px; margin: 17px 0 0; color: var(--color-text-secondary); font-size: 14px; line-height: 1.8; }
+.brew-page-header-side { display: flex; align-items: center; gap: 12px; padding: 0 0 5px 20px; border-left: 1px solid var(--color-border); }
+.brew-total-number { color: var(--color-primary); font-family: Georgia, serif; font-size: 43px; line-height: 1; }
+.brew-total-label { color: var(--color-text-secondary); font-size: 9px; font-weight: 800; letter-spacing: 1.2px; line-height: 1.5; }
+.brew-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 20px; padding: 36px 0 20px; }
+.brew-toolbar h2 { margin: 8px 0 0; color: var(--color-text); font-family: Georgia, serif; font-size: 34px; font-weight: 400; letter-spacing: -.8px; }
+.brew-new-button { display: inline-flex; min-height: 43px; align-items: center; justify-content: center; gap: 9px; padding: 0 16px; border: 0; border-radius: 7px; background: var(--color-primary); color: white; font-size: 12px; font-weight: 750; transition: background .18s, transform .18s; }
+.brew-new-button:hover { transform: translateY(-1px); background: var(--color-primary-hover); }
+.brew-new-button > span { font-size: 19px; font-weight: 400; line-height: 1; }
+.brew-list-controls { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 0 17px; border-top: 1px solid var(--color-border); color: var(--color-text-secondary); font-size: 11px; }
+.brew-list-controls select { min-height: 37px; max-width: 210px; padding: 0 30px 0 10px; border: 1px solid var(--color-border); border-radius: 7px; background: white; color: var(--color-text); font: inherit; }
+.brew-card-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px; }
+.brew-card { min-width: 0; padding: 20px; border: 1px solid var(--color-border); border-radius: 13px; background: var(--color-surface); transition: transform .18s, box-shadow .18s; }
+.brew-card:hover { transform: translateY(-2px); box-shadow: 0 10px 26px #2928240b; }
+.brew-card-topline, .brew-card-title-row, .brew-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brew-card-topline { color: var(--color-text-secondary); font-size: 10px; }
+.brew-card-method { color: var(--color-primary); font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+.brew-card-main { display: block; color: inherit; text-decoration: none; }
+.brew-card-title-row { align-items: start; margin-top: 17px; }
+.brew-card-title-row h3 { margin: 0; color: var(--color-text); font-family: Georgia, serif; font-size: 25px; font-weight: 400; }
+.brew-card-title-row p { margin: 5px 0 0; color: var(--color-text-secondary); font-size: 11px; }
+.brew-card-arrow { color: #9a9b8f; font-size: 19px; }
+.brew-card-rating { display: flex; align-items: center; gap: 9px; margin-top: 17px; }
+.brew-card-rating > span, .brew-detail-rating strong { color: #c28a45; font-size: 16px; letter-spacing: 2px; }
+.brew-card-rating i, .brew-detail-rating i { color: #dedbd2; font-style: normal; }
+.brew-card-rating small { color: var(--color-text-secondary); font-size: 10px; }
+.brew-card-summary { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+.brew-card-summary span { padding: 6px 8px; border-radius: 5px; background: var(--color-canvas); color: var(--color-text-secondary); font-size: 10px; }
+.brew-card-no-summary { margin: 14px 0 0; color: #99968e; font-size: 11px; }
+.brew-card-note { margin: 13px 0 0; color: var(--color-text-secondary); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.brew-card-footer { margin-top: 17px; padding-top: 13px; border-top: 1px solid var(--color-border); }
+.brew-card-footer a, .brew-card-footer button { padding: 0; border: 0; background: transparent; color: var(--color-primary); font-size: 10px; font-weight: 750; text-decoration: none; }
+.brew-card-footer button { color: #a45d4e; }
+.brew-empty-state, .brew-detail-state { display: flex; min-height: 330px; flex-direction: column; align-items: center; justify-content: center; padding: 35px; border: 1px dashed #d6d9ce; border-radius: 13px; background: #fbfaf6; text-align: center; }
+.brew-state-symbol { display: grid; width: 57px; height: 57px; place-items: center; margin-bottom: 18px; border-radius: 50%; background: var(--color-primary-soft); color: var(--color-primary); font-size: 27px; }
+.brew-empty-state h2, .brew-detail-state h1 { margin: 12px 0 8px; color: var(--color-text); font-family: Georgia, serif; font-size: 29px; font-weight: 400; }
+.brew-empty-state > p { max-width: 440px; margin: 0 0 18px; color: var(--color-text-secondary); font-size: 12px; line-height: 1.7; }
+.brew-empty-state .brew-empty-hint { margin: 17px 0 0; font-size: 11px; }
+.brew-empty-hint a { color: var(--color-primary); font-weight: 700; }
+.brew-inline-error, .brew-form-error { margin: 12px 0; padding: 11px 13px; border: 1px solid #edc9be; border-radius: 7px; background: #fff0ec; color: #8b3e32; font-size: 12px; }
+.brew-form-panel { margin: 34px 0 25px; padding: clamp(20px, 3vw, 34px); border: 1px solid var(--color-border); border-radius: 15px; background: var(--color-surface); box-shadow: 0 12px 32px #29282409; }
+.brew-form-heading { display: flex; align-items: start; justify-content: space-between; gap: 15px; padding-bottom: 23px; border-bottom: 1px solid var(--color-border); }
+.brew-form-heading h2 { margin: 9px 0 0; color: var(--color-text); font-family: Georgia, serif; font-size: 37px; font-weight: 400; letter-spacing: -.8px; }
+.brew-form-heading p, .brew-section-title p { margin: 8px 0 0; color: var(--color-text-secondary); font-size: 12px; line-height: 1.65; }
+.brew-close-button { width: 36px; height: 36px; border: 1px solid var(--color-border); border-radius: 50%; background: white; color: var(--color-text-secondary); font-size: 23px; line-height: 1; }
+.brew-form { display: flex; flex-direction: column; gap: 0; }
+.brew-form-section { padding: 26px 0; border-bottom: 1px solid var(--color-border); }
+.brew-section-title { display: flex; align-items: start; gap: 12px; margin-bottom: 19px; }
+.brew-section-title > span { display: grid; width: 28px; height: 28px; flex: 0 0 28px; place-items: center; border-radius: 50%; background: var(--color-primary-soft); color: var(--color-primary); font-size: 10px; font-weight: 800; }
+.brew-section-title h3 { margin: 2px 0 0; color: var(--color-text); font-family: Georgia, serif; font-size: 22px; font-weight: 400; }
+.brew-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px; }
+.brew-form .field-group textarea { width: 100%; min-height: 90px; padding: 11px 12px; border: 1px solid #dfe2d9; border-radius: 7px; background: white; color: var(--color-text); font: inherit; font-size: 13px; resize: vertical; }
+.brew-parameter-phases { display: flex; flex-direction: column; gap: 10px; }
+.brew-phase { overflow: hidden; border: 1px solid var(--color-border); border-radius: 10px; background: #fffefa; }
+.brew-phase > summary { display: flex; min-height: 66px; align-items: center; justify-content: space-between; gap: 15px; padding: 12px 16px; cursor: pointer; list-style: none; }
+.brew-phase > summary::-webkit-details-marker { display: none; }
+.brew-phase > summary > span:first-child { display: flex; flex-direction: column; gap: 4px; }
+.brew-phase > summary strong { color: var(--color-text); font-family: Georgia, serif; font-size: 17px; font-weight: 400; }
+.brew-phase > summary small { color: var(--color-text-secondary); font-size: 10px; }
+.brew-phase-chevron { color: var(--color-primary); font-size: 20px; transition: transform .18s; }
+.brew-phase[open] .brew-phase-chevron { transform: rotate(180deg); }
+.brew-phase-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 17px; border-top: 1px solid var(--color-border); }
+.brew-parameter-input-wrap { position: relative; }
+.brew-parameter-input-wrap input { padding-right: 55px; }
+.brew-parameter-input-wrap > span { position: absolute; top: 50%; right: 12px; color: var(--color-text-secondary); font-size: 11px; transform: translateY(-50%); pointer-events: none; }
+.brew-parameter-check { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 43px; padding: 8px 11px; border: 1px solid var(--color-border); border-radius: 7px; color: #414a40; font-size: 11px; font-weight: 700; }
+.brew-parameter-check input { width: 17px; height: 17px; accent-color: var(--color-primary); }
+.brew-parameter-prompt, .brew-no-parameters { padding: 17px; border: 1px dashed var(--color-border); border-radius: 8px; color: var(--color-text-secondary); font-size: 12px; }
+.brew-rating { display: flex; align-items: center; gap: 5px; }
+.brew-rating button { padding: 2px; border: 0; background: transparent; color: #dedbd2; font-size: 30px; line-height: 1; }
+.brew-rating button.selected { color: #c28a45; }
+.brew-rating button:disabled { opacity: .6; }
+.brew-rating > span { margin-left: 8px; color: var(--color-text-secondary); font-size: 11px; }
+.brew-form-actions { display: flex; justify-content: end; gap: 10px; padding-top: 22px; }
+.brew-cancel-button, .brew-delete-button { min-height: 42px; padding: 0 16px; border: 1px solid var(--color-border); border-radius: 7px; background: white; color: var(--color-text-secondary); font-size: 11px; font-weight: 700; }
+.brew-save-button { display: inline-flex; min-width: 150px; min-height: 42px; align-items: center; justify-content: space-between; gap: 20px; padding: 0 15px; border: 0; border-radius: 7px; background: var(--color-primary); color: white; font-size: 11px; font-weight: 750; }
+.brew-save-button:hover:not(:disabled) { background: var(--color-primary-hover); }
+.brew-required-hint { margin: 12px 0 0; color: var(--color-text-secondary); font-size: 10px; }
+.brew-required-hint span { color: #bd6948; }
+.brew-detail-page { padding-top: 30px; padding-bottom: 70px; }
+.brew-detail-header { display: flex; align-items: end; justify-content: space-between; gap: 20px; padding: 0 0 35px; border-bottom: 1px solid var(--color-border); }
+.brew-detail-header h1 { font-size: clamp(38px, 5vw, 62px); }
+.brew-detail-header p { margin: 13px 0 6px; color: var(--color-text-secondary); font-size: 14px; }
+.brew-detail-header time { color: var(--color-text-secondary); font-size: 11px; }
+.brew-detail-actions { display: flex; gap: 8px; }
+.brew-delete-button { border-color: #eadbd5; color: #a45d4e; }
+.brew-detail-rating { display: flex; align-items: center; gap: 15px; padding: 25px 0; border-bottom: 1px solid var(--color-border); }
+.brew-detail-rating > span:last-child { color: var(--color-text-secondary); font-size: 11px; }
+.brew-detail-section { padding: 32px 0; border-bottom: 1px solid var(--color-border); }
+.brew-detail-section h2 { margin: 9px 0 20px; color: var(--color-text); font-family: Georgia, serif; font-size: 32px; font-weight: 400; }
+.brew-detail-phase + .brew-detail-phase { margin-top: 24px; }
+.brew-detail-phase h3 { margin: 0 0 12px; color: var(--color-primary); font-size: 10px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; }
+.brew-detail-muted, .brew-detail-note { color: var(--color-text-secondary); font-size: 13px; line-height: 1.8; }
+.brew-detail-note { max-width: 760px; margin: 0; padding: 19px 22px; border-left: 3px solid var(--color-accent); border-radius: 0 9px 9px 0; background: var(--color-surface); white-space: pre-wrap; }
+@media (max-width: 760px) {
+  .brew-page-header { align-items: start; padding: 43px 0 30px; }
+  .brew-page-header h1 { font-size: 53px; }
+  .brew-card-grid { grid-template-columns: 1fr; }
+  .brew-form-grid, .brew-phase-fields { grid-template-columns: 1fr; }
+  .brew-toolbar { align-items: center; }
+  .brew-detail-header { align-items: start; flex-direction: column; }
+  .brew-detail-rating { flex-wrap: wrap; }
+}
+@media (max-width: 420px) {
+  .brew-page-header-side { gap: 8px; padding-left: 11px; }
+  .brew-total-number { font-size: 34px; }
+  .brew-toolbar h2 { font-size: 28px; }
+  .brew-new-button { min-height: 40px; padding: 0 11px; font-size: 10px; }
+  .brew-form-panel { padding: 17px; }
+  .brew-form-heading h2 { font-size: 31px; }
+  .brew-form-actions { flex-direction: column-reverse; }
+  .brew-form-actions button { width: 100%; }
+  .brew-rating button { font-size: 26px; }
+}

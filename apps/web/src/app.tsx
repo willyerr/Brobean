@@ -1,3 +1,4 @@
+import './brew.css';
 
 import {
   BrowserRouter,
@@ -11,6 +12,8 @@ import AppLayout from './layouts/AppLayout';
 import BeanCatalog from './pages/BeanCatalog';
 import BeanDetail from './pages/BeanDetail';
 import Dashboard from './pages/Dashboard';
+import BrewLog from './pages/BrewLog';
+import BrewDetail from './pages/BrewDetail';
 
 function PlaceholderPage({
   title,
@@ -65,15 +68,8 @@ function App() {
           <Route path="/beans" element={<BeanCatalog />} />
           <Route path="/beans/:id" element={<BeanDetail />} />
 
-          <Route
-            path="/brews"
-            element={
-              <PlaceholderPage
-                title="Brew Log."
-                description="Your brewing history will live here."
-              />
-            }
-          />
+          <Route path="/brews" element={<BrewLog />} />
+          <Route path="/brews/:id" element={<BrewDetail />} />
 
           <Route
             path="/equipment"

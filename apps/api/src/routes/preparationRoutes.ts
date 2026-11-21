@@ -1,0 +1,12 @@
+import { Router } from 'express';
+import controller from '../controllers/preparationController.js';
+const router = Router();
+router.get('/', controller.getAll);
+router.get('/:id/parameters', controller.getParameters);
+router.put('/:id/parameters', controller.updateParameters);
+router.get('/:id', controller.getById);
+router.post('/', controller.create);
+router.put('/:id', controller.update);
+router.patch('/:id/archive', controller.archive);
+router.patch('/:id/restore', controller.restore);
+export default router;
