@@ -1,5 +1,6 @@
-﻿import type { ErrorRequestHandler } from 'express';
+import type { ErrorRequestHandler } from 'express';
 import { BeanServiceError } from '../services/beanService.js';
+import logger from '../utils/logger.js';
 
 const errorHandler: ErrorRequestHandler = (
   error,
@@ -8,13 +9,17 @@ const errorHandler: ErrorRequestHandler = (
   _next
 ) => {
   if (error instanceof BeanServiceError) {
+    logger.warn('Request rejected by business rule', {
+      statusCode: error.statusCode,
+      errorMessage: error.message
+    });
     res.status(error.statusCode).json({
       message: error.message
     });
     return;
   }
 
-  console.error('Internal server error:', error);
+  logger.error('Unhandled API error', error);
 
   res.status(500).json({
     message: 'Terjadi kesalahan pada server.'
