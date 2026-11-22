@@ -9,7 +9,11 @@
   ],
   "scripts": {
     "dev:api": "npm run dev --workspace=@brobean/api",
-    "dev:web": "npm run dev --workspace=@brobean/web"
+    "dev:web": "npm run dev --workspace=@brobean/web",
+    "build:web": "npm run build --workspace=@brobean/web",
+    "cap:sync": "npm run build:web && cap sync android",
+    "cap:open": "cap open android",
+    "android:debug": "npm run cap:sync && cd android && gradlew.bat assembleDebug"
   },
   "repository": {
     "type": "git",
@@ -17,7 +21,17 @@
   },
   "author": "",
   "license": "ISC",
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor-community/sqlite": "^8.1.1"
+  },
   "devDependencies": {
+    "@capacitor/cli": "^8.0.0",
     "tsx": "^4.23.15"
+  },
+  "allowScripts": {
+    "better-sqlite3@13.1.1": true,
+    "esbuild@0.28.2": true
   }
 }
