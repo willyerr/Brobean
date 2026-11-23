@@ -13,7 +13,9 @@
     "build:web": "npm run build --workspace=@brobean/web",
     "cap:sync": "npm run build:web && cap sync android",
     "cap:open": "cap open android",
-    "android:debug": "npm run cap:sync && cd android && gradlew.bat assembleDebug"
+    "android:debug": "npm run cap:sync && cd android && gradlew.bat assembleDebug",
+    "test:web": "npm run test --workspace=@brobean/web",
+    "test": "npm run test:web"
   },
   "repository": {
     "type": "git",
