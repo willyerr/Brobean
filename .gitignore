@@ -25,3 +25,9 @@ Thumbs.db
 apps/api/data/*.sqlite-wal
 apps/api/data/*.sqlite-shm
 apps/api/data/*.sqlite-journal
+
+android/.gradle/
+android/local.properties
+android/**/build/
+android/captures/
+android/.idea/
